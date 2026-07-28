@@ -33,10 +33,6 @@ public class Coupon : BaseEntity
 
     public CouponSource Source { get; private set; }
 
-    public DateTime CreatedAt { get; private set; }
-
-    public DateTime UpdatedAt { get; private set; }
-
     private Coupon()
     {
         // Required by Entity Framework Core
@@ -64,11 +60,7 @@ public class Coupon : BaseEntity
     minimumOrderAmount,
     maximumDiscount,
     expiryDate);
-        // common date variable logic to set the properties of the coupon
-        var now = DateTime.UtcNow;
-
-        Id = Guid.NewGuid();
-
+       
         Brand = brand;
 
         CouponCode = couponCode.Trim();
@@ -90,9 +82,6 @@ public class Coupon : BaseEntity
         Source = source;
 
         IsActive = true;
-
-        CreatedAt = now;
-        UpdatedAt = now;
     }
     // Validate the coupon properties
     private static void Validate(
@@ -127,7 +116,7 @@ public class Coupon : BaseEntity
         if (!IsActive)
             return;
         IsActive = false;
-        UpdatedAt = DateTime.UtcNow;
+        Touch();
     }
     // Method to activate the coupon
     public void Activate()
@@ -136,7 +125,7 @@ public class Coupon : BaseEntity
             return;
 
         IsActive = true;
-        UpdatedAt = DateTime.UtcNow;
+        Touch();
     }
     public void UpdateExpiry(DateTime expiryDate)
     {
@@ -144,7 +133,7 @@ public class Coupon : BaseEntity
             throw new DomainException("Expiry date cannot be in the past.");
 
         ExpiryDate = expiryDate;
-        UpdatedAt = DateTime.UtcNow;
+        Touch();
     }
 
     public void UpdateDescription(string description)
@@ -153,7 +142,7 @@ public class Coupon : BaseEntity
             throw new DomainException("Description is required.");
 
         Description = description.Trim();
-        UpdatedAt = DateTime.UtcNow;
+        Touch();
     }
 
     public void UpdateDiscount(DiscountType discountType,
@@ -165,13 +154,13 @@ public class Coupon : BaseEntity
         DiscountType = discountType;
         DiscountValue = discountValue;
 
-        UpdatedAt = DateTime.UtcNow;
+        Touch();
     }
 
     public void UpdateCategory(CouponCategory category)
     {
         Category = category;
-        UpdatedAt = DateTime.UtcNow;
+        Touch();
     }
 
 }
