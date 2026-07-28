@@ -33,8 +33,6 @@ public class Brand : BaseEntity
         if (string.IsNullOrWhiteSpace(name))
             throw new DomainException("Brand name is required.");
 
-        Id = Guid.NewGuid();
-
         Name = name.Trim();
 
         Category = category;
@@ -50,6 +48,8 @@ public class Brand : BaseEntity
             throw new DomainException("Brand name is required.");
 
         Name = name.Trim();
+
+        Touch();
     }
 
     public void UpdateLogo(string logoUrl)
@@ -58,11 +58,13 @@ public class Brand : BaseEntity
             throw new DomainException("Logo URL is required.");
 
         LogoUrl = ImageUrl.Create(logoUrl);
+        Touch();
     }
 
     public void UpdateCategory(CouponCategory category)
     {
         Category = category;
+        Touch();
     }
 
     public void Activate()
@@ -71,6 +73,7 @@ public class Brand : BaseEntity
             return;
 
         IsActive = true;
+        Touch();
     }
 
     public void Deactivate()
@@ -79,5 +82,6 @@ public class Brand : BaseEntity
             return;
 
         IsActive = false;
+        Touch();
     }
 }
