@@ -31,7 +31,7 @@ public class Coupon : BaseEntity
 
     public bool IsActive { get; private set; }
 
-    public CouponSource Source { get; private set; }
+    public CouponSource CouponSource { get; private set; }
 
     private Coupon()
     {
@@ -49,13 +49,14 @@ public class Coupon : BaseEntity
         decimal? minimumOrderAmount,
         decimal? maximumDiscount,
         DateTime? expiryDate,
-        CouponSource source)
+        CouponSource couponSource)
     {
         // call validation method to validate the coupon properties
 
         Validate(
     brand,
     couponCode,
+    description,
     discountValue,
     minimumOrderAmount,
     maximumDiscount,
@@ -79,7 +80,7 @@ public class Coupon : BaseEntity
 
         ExpiryDate = expiryDate;
 
-        Source = source;
+        CouponSource = couponSource;
 
         IsActive = true;
     }
@@ -87,6 +88,7 @@ public class Coupon : BaseEntity
     private static void Validate(
     Brand brand,
     string couponCode,
+    string description,
     decimal discountValue,
     decimal? minimumOrderAmount,
     decimal? maximumDiscount,
@@ -101,14 +103,23 @@ public class Coupon : BaseEntity
         if (discountValue <= 0)
             throw new DomainException("Discount value must be greater than zero.");
 
-        if (minimumOrderAmount < 0)
+        if (minimumOrderAmount.HasValue &&
+    minimumOrderAmount.Value < 0)
+        {
             throw new DomainException("Minimum order amount cannot be negative.");
+        }
 
-        if (maximumDiscount < 0)
+        if (maximumDiscount.HasValue &&
+            maximumDiscount.Value < 0)
+        {
             throw new DomainException("Maximum discount cannot be negative.");
+        }
 
         if (expiryDate.HasValue && expiryDate.Value < DateTime.UtcNow)
             throw new DomainException("Expiry date cannot be in the past.");
+
+        if (string.IsNullOrWhiteSpace(description))
+            throw new DomainException("Description is required.");
     }
     // Method to update the coupon properties
     public void Deactivate()

@@ -4,7 +4,7 @@ using CouponHub.Domain.Entities;
 
 namespace CouponHub.Application.Brands.Commands.CreateBrand;
 
-public class CreateBrandCommandHandler
+public sealed class CreateBrandCommandHandler
 {
     private readonly IBrandRepository _brandRepository;
 
