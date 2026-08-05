@@ -11,6 +11,7 @@ namespace CouponHub.Domain.Entities;
 
 public class Coupon : BaseEntity
 {
+    public Guid BrandId { get; private set; }
     public Brand Brand { get; private set; }
 
     public string CouponCode { get; private set; } = string.Empty;
@@ -61,7 +62,9 @@ public class Coupon : BaseEntity
     minimumOrderAmount,
     maximumDiscount,
     expiryDate);
-       
+
+        BrandId = brand.Id;
+
         Brand = brand;
 
         CouponCode = couponCode.Trim();
@@ -103,8 +106,7 @@ public class Coupon : BaseEntity
         if (discountValue <= 0)
             throw new DomainException("Discount value must be greater than zero.");
 
-        if (minimumOrderAmount.HasValue &&
-    minimumOrderAmount.Value < 0)
+        if (minimumOrderAmount.HasValue && minimumOrderAmount.Value < 0)
         {
             throw new DomainException("Minimum order amount cannot be negative.");
         }
@@ -138,10 +140,13 @@ public class Coupon : BaseEntity
         IsActive = true;
         Touch();
     }
-    public void UpdateExpiry(DateTime expiryDate)
+    public void UpdateExpiry(DateTime? expiryDate)
     {
-        if (expiryDate < DateTime.UtcNow)
+        if (expiryDate.HasValue &&
+            expiryDate.Value < DateTime.UtcNow)
+        {
             throw new DomainException("Expiry date cannot be in the past.");
+        }
 
         ExpiryDate = expiryDate;
         Touch();

@@ -1,6 +1,6 @@
 ﻿using CouponHub.Application.Abstractions.Repositories;
-using CouponHub.Application.Common;
 using CouponHub.Domain.Entities;
+using CouponHub.Domain.Exceptions;
 
 namespace CouponHub.Application.Brands.Commands.CreateBrand;
 
@@ -14,16 +14,16 @@ public sealed class CreateBrandCommandHandler
         _brandRepository = brandRepository;
     }
 
-    public async Task<Result<Brand>> Handle(
+    public async Task<Brand> Handle(
         CreateBrandCommand command,
         CancellationToken cancellationToken = default)
     {
-        if (await _brandRepository.ExistsAsync(
+        if (await _brandRepository.ExistsByNameAsync(
             command.Name,
             cancellationToken))
         {
-            return Result<Brand>.Failure(
-                "Brand already exists.");
+            throw new ConflictException(
+                $"Brand '{command.Name}' already exists.");
         }
 
         var brand = new Brand(
@@ -35,6 +35,6 @@ public sealed class CreateBrandCommandHandler
             brand,
             cancellationToken);
 
-        return Result<Brand>.Success(brand);
+        return brand;
     }
 }
