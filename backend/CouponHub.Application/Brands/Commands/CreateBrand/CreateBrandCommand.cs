@@ -4,5 +4,5 @@ namespace CouponHub.Application.Brands.Commands.CreateBrand;
 
 public sealed record CreateBrandCommand(
     string Name,
-    CouponCategory Category,
+    BrandCategory Category,
     string? LogoUrl);

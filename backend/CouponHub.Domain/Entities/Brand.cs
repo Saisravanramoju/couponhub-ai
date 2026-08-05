@@ -11,7 +11,7 @@ public class Brand : BaseEntity
 
     public ImageUrl? LogoUrl { get; private set; }
 
-    public CouponCategory Category { get; private set; }
+    public BrandCategory Category { get; private set; }
 
     public bool IsActive { get; private set; }
 
@@ -27,7 +27,7 @@ public class Brand : BaseEntity
     // Constructor to create a new Brand
     public Brand(
         string name,
-        CouponCategory category,
+        BrandCategory category,
         string? logoUrl = null)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -61,7 +61,7 @@ public class Brand : BaseEntity
         Touch();
     }
 
-    public void UpdateCategory(CouponCategory category)
+    public void UpdateCategory(BrandCategory category)
     {
         Category = category;
         Touch();

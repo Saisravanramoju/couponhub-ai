@@ -45,10 +45,5 @@ public sealed class BrandConfiguration : IEntityTypeConfiguration<Brand>
        .HasConversion(
             imageUrl => imageUrl.Value,
             value => ImageUrl.Create(value));
-
-        builder.HasOne(c => c.Brand)
-       .WithMany(b => b.Coupons)
-       .HasForeignKey(c => c.BrandId)
-       .OnDelete(DeleteBehavior.Restrict);
     }
 }

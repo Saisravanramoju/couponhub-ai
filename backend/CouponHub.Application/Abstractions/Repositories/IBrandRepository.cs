@@ -16,7 +16,10 @@ public interface IBrandRepository
         string name,
         CancellationToken cancellationToken = default);
 
-    Task<bool> ExistsAsync(
+    Task<IEnumerable<Brand>> GetAllAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<bool> ExistsByNameAsync(
         string name,
         CancellationToken cancellationToken = default);
 }
