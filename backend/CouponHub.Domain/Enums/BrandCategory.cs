@@ -11,5 +11,6 @@ public enum BrandCategory
     Electronics = 7,
     Entertainment = 8,
     Payments = 9,
-    Other = 10
+    Shopping = 10,
+    Other = 11
 }

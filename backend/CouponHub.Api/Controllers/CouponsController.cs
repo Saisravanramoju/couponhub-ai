@@ -11,46 +11,59 @@ namespace CouponHub.Api.Controllers;
 [Route("api/coupons")]
 public sealed class CouponsController : ControllerBase
 {
+    private readonly CreateCouponCommandHandler _createCouponHandler;
+    private readonly GetCouponByIdQueryHandler _getCouponByIdHandler;
+    private readonly GetCouponsQueryHandler _getCouponsHandler;
+
+    public CouponsController(
+        CreateCouponCommandHandler createCouponHandler,
+        GetCouponByIdQueryHandler getCouponByIdHandler,
+        GetCouponsQueryHandler getCouponsHandler)
+    {
+        _createCouponHandler = createCouponHandler;
+        _getCouponByIdHandler = getCouponByIdHandler;
+        _getCouponsHandler = getCouponsHandler;
+    }
+
     [HttpPost]
     [ProducesResponseType(typeof(CouponResponse), StatusCodes.Status201Created)]
-    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<CouponResponse>> Create(
-        CreateCouponRequest request,
-        [FromServices] CreateCouponCommandHandler handler,
+        [FromBody] CreateCouponRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await handler.Handle(new CreateCouponCommand(
-            request.BrandId,
-            request.CouponCode,
-            request.Description,
-            request.Category,
-            request.DiscountType,
-            request.DiscountValue,
-            request.MinimumOrderAmount,
-            request.MaximumDiscount,
-            request.ExpiryDate,
-            request.Source), cancellationToken);
+        var coupon = await _createCouponHandler.Handle(
+            new CreateCouponCommand(
+                request.BrandId,
+                request.CouponCode,
+                request.Description,
+                request.Category,
+                request.DiscountType,
+                request.DiscountValue,
+                request.MinimumOrderAmount,
+                request.MaximumDiscount,
+                request.ExpiryDate,
+                request.CouponSource),
+            cancellationToken);
 
-        if (!result.IsSuccess)
-        {
-            return BadRequest(new ApiErrorResponse(
-                StatusCodes.Status400BadRequest,
-                "Coupon creation failed.",
-                result.Error!,
-                HttpContext.TraceIdentifier));
-        }
+        var response = CouponResponse.FromEntity(coupon);
 
-        var response = CouponResponse.FromEntity(result.Value!);
-        return CreatedAtAction(nameof(GetById), new { id = response.Id }, response);
+        return CreatedAtAction(
+            nameof(GetById),
+            new { id = response.Id },
+            response);
     }
 
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<CouponResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<CouponResponse>>> GetAll(
-        [FromServices] GetCouponsQueryHandler handler,
         CancellationToken cancellationToken)
     {
-        var coupons = await handler.Handle(new GetCouponsQuery(), cancellationToken);
+        var coupons = await _getCouponsHandler.Handle(
+            new GetCouponsQuery(),
+            cancellationToken);
+
         return Ok(coupons.Select(CouponResponse.FromEntity));
     }
 
@@ -59,17 +72,12 @@ public sealed class CouponsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CouponResponse>> GetById(
         Guid id,
-        [FromServices] GetCouponByIdQueryHandler handler,
         CancellationToken cancellationToken)
     {
-        var coupon = await handler.Handle(new GetCouponByIdQuery(id), cancellationToken);
+        var coupon = await _getCouponByIdHandler.Handle(
+            new GetCouponByIdQuery(id),
+            cancellationToken);
 
-        return coupon is null
-            ? NotFound(new ApiErrorResponse(
-                StatusCodes.Status404NotFound,
-                "Coupon not found.",
-                "No coupon exists with the specified identifier.",
-                HttpContext.TraceIdentifier))
-            : Ok(CouponResponse.FromEntity(coupon));
+        return Ok(CouponResponse.FromEntity(coupon));
     }
 }

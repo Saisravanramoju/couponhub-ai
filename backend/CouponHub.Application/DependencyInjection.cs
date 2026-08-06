@@ -19,6 +19,7 @@ public static class DependencyInjection
         services.AddScoped<GetCouponByIdQueryHandler>();
         services.AddScoped<GetCouponsQueryHandler>();
 
+
         return services;
     }
 }

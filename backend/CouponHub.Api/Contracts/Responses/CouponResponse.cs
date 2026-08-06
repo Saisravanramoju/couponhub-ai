@@ -15,8 +15,8 @@ public sealed record CouponResponse(
     decimal? MinimumOrderAmount,
     decimal? MaximumDiscount,
     DateTime? ExpiryDate,
-    CouponSource Source,
     bool IsActive,
+    CouponSource CouponSource,
     DateTime CreatedAt,
     DateTime? UpdatedAt)
 {
@@ -32,8 +32,8 @@ public sealed record CouponResponse(
         coupon.MinimumOrderAmount,
         coupon.MaximumDiscount,
         coupon.ExpiryDate,
-        coupon.CouponSource,
         coupon.IsActive,
+        coupon.CouponSource,
         coupon.CreatedAt,
         coupon.UpdatedAt);
 }
