@@ -12,4 +12,4 @@ public sealed record CreateCouponCommand(
     decimal? MinimumOrderAmount,
     decimal? MaximumDiscount,
     DateTime? ExpiryDate,
-    CouponSource Source);
+    CouponSource CouponSource);

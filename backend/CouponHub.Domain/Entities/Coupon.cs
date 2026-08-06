@@ -1,10 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using CouponHub.Domain.Common;
 using CouponHub.Domain.Enums;
-using CouponHub.Domain.Common;
 using CouponHub.Domain.Exceptions;
 
 namespace CouponHub.Domain.Entities;
@@ -12,7 +7,9 @@ namespace CouponHub.Domain.Entities;
 public class Coupon : BaseEntity
 {
     public Guid BrandId { get; private set; }
-    public Brand Brand { get; private set; }
+
+    // Navigation property populated by EF Core when queried with Include()
+    public Brand Brand { get; private set; } = null!;
 
     public string CouponCode { get; private set; } = string.Empty;
 
@@ -36,12 +33,11 @@ public class Coupon : BaseEntity
 
     private Coupon()
     {
-        // Required by Entity Framework Core
+        // Required by EF Core
     }
 
-    // Constructor to create a new coupon
     public Coupon(
-        Brand brand,
+        Guid brandId,
         string couponCode,
         string description,
         CouponCategory category,
@@ -52,20 +48,15 @@ public class Coupon : BaseEntity
         DateTime? expiryDate,
         CouponSource couponSource)
     {
-        // call validation method to validate the coupon properties
-
         Validate(
-    brand,
-    couponCode,
-    description,
-    discountValue,
-    minimumOrderAmount,
-    maximumDiscount,
-    expiryDate);
+            couponCode,
+            description,
+            discountValue,
+            minimumOrderAmount,
+            maximumDiscount,
+            expiryDate);
 
-        BrandId = brand.Id;
-
-        Brand = brand;
+        BrandId = brandId;
 
         CouponCode = couponCode.Trim();
 
@@ -87,26 +78,26 @@ public class Coupon : BaseEntity
 
         IsActive = true;
     }
-    // Validate the coupon properties
-    private static void Validate(
-    Brand brand,
-    string couponCode,
-    string description,
-    decimal discountValue,
-    decimal? minimumOrderAmount,
-    decimal? maximumDiscount,
-    DateTime? expiryDate)
-    {
-        if (brand is null)
-            throw new DomainException("Brand is required.");
 
+    private static void Validate(
+        string couponCode,
+        string description,
+        decimal discountValue,
+        decimal? minimumOrderAmount,
+        decimal? maximumDiscount,
+        DateTime? expiryDate)
+    {
         if (string.IsNullOrWhiteSpace(couponCode))
             throw new DomainException("Coupon code is required.");
+
+        if (string.IsNullOrWhiteSpace(description))
+            throw new DomainException("Description is required.");
 
         if (discountValue <= 0)
             throw new DomainException("Discount value must be greater than zero.");
 
-        if (minimumOrderAmount.HasValue && minimumOrderAmount.Value < 0)
+        if (minimumOrderAmount.HasValue &&
+            minimumOrderAmount.Value < 0)
         {
             throw new DomainException("Minimum order amount cannot be negative.");
         }
@@ -117,21 +108,13 @@ public class Coupon : BaseEntity
             throw new DomainException("Maximum discount cannot be negative.");
         }
 
-        if (expiryDate.HasValue && expiryDate.Value < DateTime.UtcNow)
+        if (expiryDate.HasValue &&
+            expiryDate.Value < DateTime.UtcNow)
+        {
             throw new DomainException("Expiry date cannot be in the past.");
+        }
+    }
 
-        if (string.IsNullOrWhiteSpace(description))
-            throw new DomainException("Description is required.");
-    }
-    // Method to update the coupon properties
-    public void Deactivate()
-    {
-        if (!IsActive)
-            return;
-        IsActive = false;
-        Touch();
-    }
-    // Method to activate the coupon
     public void Activate()
     {
         if (IsActive)
@@ -140,15 +123,13 @@ public class Coupon : BaseEntity
         IsActive = true;
         Touch();
     }
-    public void UpdateExpiry(DateTime? expiryDate)
-    {
-        if (expiryDate.HasValue &&
-            expiryDate.Value < DateTime.UtcNow)
-        {
-            throw new DomainException("Expiry date cannot be in the past.");
-        }
 
-        ExpiryDate = expiryDate;
+    public void Deactivate()
+    {
+        if (!IsActive)
+            return;
+
+        IsActive = false;
         Touch();
     }
 
@@ -158,16 +139,19 @@ public class Coupon : BaseEntity
             throw new DomainException("Description is required.");
 
         Description = description.Trim();
+
         Touch();
     }
 
-    public void UpdateDiscount(DiscountType discountType,
-    decimal discountValue)
+    public void UpdateDiscount(
+        DiscountType discountType,
+        decimal discountValue)
     {
         if (discountValue <= 0)
             throw new DomainException("Discount value must be greater than zero.");
 
         DiscountType = discountType;
+
         DiscountValue = discountValue;
 
         Touch();
@@ -176,7 +160,20 @@ public class Coupon : BaseEntity
     public void UpdateCategory(CouponCategory category)
     {
         Category = category;
+
         Touch();
     }
 
+    public void UpdateExpiry(DateTime? expiryDate)
+    {
+        if (expiryDate.HasValue &&
+            expiryDate.Value < DateTime.UtcNow)
+        {
+            throw new DomainException("Expiry date cannot be in the past.");
+        }
+
+        ExpiryDate = expiryDate;
+
+        Touch();
+    }
 }

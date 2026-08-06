@@ -4,9 +4,9 @@ namespace CouponHub.Application.Abstractions.Repositories;
 
 public interface ICouponRepository
 {
-    Task AddAsync(
-        Coupon coupon,
-        CancellationToken cancellationToken = default);
+    Task<Coupon> AddAsync(
+    Coupon coupon,
+    CancellationToken cancellationToken = default);
 
     Task<Coupon?> GetByIdAsync(
         Guid id,
@@ -14,4 +14,7 @@ public interface ICouponRepository
 
     Task<IEnumerable<Coupon>> GetAllAsync(
         CancellationToken cancellationToken = default);
+
+    Task<bool> ExistsByCodeAsync( Guid brandId,string couponCode,
+    CancellationToken cancellationToken = default);
 }

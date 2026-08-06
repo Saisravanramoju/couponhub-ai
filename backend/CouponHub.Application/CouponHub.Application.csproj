@@ -8,7 +8,6 @@
     <Folder Include="Abstractions\Services\" />
     <Folder Include="Brands\DTOs\" />
     <Folder Include="Brands\Queries\" />
-    <Folder Include="Coupons\Commands\" />
   </ItemGroup>
 
   <ItemGroup>
