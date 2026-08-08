@@ -32,16 +32,13 @@ public class Coupon : BaseEntity
 
     private Coupon()
     {
-        // Required by Entity Framework Core
+        // Required by EF Core
     }
 
-    // Constructor to create a new coupon
     public Coupon(
     Guid brandId,
     CouponDetails details)
     {
-        // call validation method to validate the coupon properties
-
         Validate(
        brandId,
        details);
@@ -68,7 +65,7 @@ public class Coupon : BaseEntity
 
         IsActive = true;
     }
-    // Validate the coupon properties
+
     private static void Validate(
     Guid brandId,
     CouponDetails details)
@@ -316,7 +313,7 @@ public class Coupon : BaseEntity
         IsActive = false;
         Touch();
     }
-    // Method to activate the coupon
+
     public void Activate()
     {
         if (IsActive)
@@ -325,15 +322,13 @@ public class Coupon : BaseEntity
         IsActive = true;
         Touch();
     }
-    public void UpdateExpiry(DateTime? expiryDate)
-    {
-        if (expiryDate.HasValue &&
-            expiryDate.Value < DateTime.UtcNow)
-        {
-            throw new DomainException("Expiry date cannot be in the past.");
-        }
 
-        ExpiryDate = expiryDate;
+    public void Deactivate()
+    {
+        if (!IsActive)
+            return;
+
+        IsActive = false;
         Touch();
     }
 
@@ -343,16 +338,19 @@ public class Coupon : BaseEntity
             throw new DomainException("Description is required.");
 
         Description = description.Trim();
+
         Touch();
     }
 
-    public void UpdateDiscount(DiscountType discountType,
-    decimal discountValue)
+    public void UpdateDiscount(
+        DiscountType discountType,
+        decimal discountValue)
     {
         if (discountValue <= 0)
             throw new DomainException("Discount value must be greater than zero.");
 
         DiscountType = discountType;
+
         DiscountValue = discountValue;
 
         Touch();
@@ -361,7 +359,20 @@ public class Coupon : BaseEntity
     public void UpdateCategory(CouponCategory category)
     {
         Category = category;
+
         Touch();
     }
 
+    public void UpdateExpiry(DateTime? expiryDate)
+    {
+        if (expiryDate.HasValue &&
+            expiryDate.Value < DateTime.UtcNow)
+        {
+            throw new DomainException("Expiry date cannot be in the past.");
+        }
+
+        ExpiryDate = expiryDate;
+
+        Touch();
+    }
 }

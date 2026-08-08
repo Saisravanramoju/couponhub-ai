@@ -14,8 +14,11 @@ public sealed class GetCouponsQueryHandler
         _couponRepository = couponRepository;
     }
 
-    public Task<IEnumerable<Coupon>> Handle(
-        GetCouponsQuery query,
-        CancellationToken cancellationToken = default) =>
-        _couponRepository.GetAllAsync(cancellationToken);
+    public async Task<IEnumerable<Coupon>> Handle(
+    GetCouponsQuery query,
+    CancellationToken cancellationToken = default)
+    {
+        return await _couponRepository.GetAllAsync(
+            cancellationToken);
+    }
 }
