@@ -1,3 +1,5 @@
-namespace CouponHub.Application.Coupons.Queries.GetCouponById;
+using CouponHub.Domain.Entities;
+using MediatR;
 
-public sealed record GetCouponByIdQuery(Guid Id);
+public sealed record GetCouponByIdQuery(Guid Id)
+    : IRequest<Coupon>;

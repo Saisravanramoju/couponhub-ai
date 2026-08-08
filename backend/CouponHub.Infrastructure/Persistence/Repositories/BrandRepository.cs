@@ -1,33 +1,26 @@
 ﻿using CouponHub.Application.Abstractions.Repositories;
 using CouponHub.Domain.Entities;
 using CouponHub.Infrastructure.Persistence;
+using CouponHub.Infrastructure.Persistence.Repositories.Base;
 using Microsoft.EntityFrameworkCore;
 
 namespace CouponHub.Infrastructure.Persistence.Repositories;
 
-public sealed class BrandRepository : IBrandRepository
+
+
+public sealed class BrandRepository
+    : Repository<Brand>, IBrandRepository
 {
-    private readonly ApplicationDbContext _context;
-
     public BrandRepository(ApplicationDbContext context)
+     : base(context)
     {
-        _context = context;
-    }
-
-    public async Task AddAsync(
-        Brand brand,
-        CancellationToken cancellationToken = default)
-    {
-        await _context.Set<Brand>().AddAsync(brand, cancellationToken);
-
-        await _context.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<Brand?> GetByIdAsync(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        return await _context.Set<Brand>()
+        return await Entities
             .AsNoTracking()
             .FirstOrDefaultAsync(
                 b => b.Id == id,
@@ -38,7 +31,7 @@ public sealed class BrandRepository : IBrandRepository
         string name,
         CancellationToken cancellationToken = default)
     {
-        return await _context.Set<Brand>()
+        return await Entities
             .AsNoTracking()
             .FirstOrDefaultAsync(
                 b => b.Name == name,
@@ -48,7 +41,7 @@ public sealed class BrandRepository : IBrandRepository
     public async Task<IEnumerable<Brand>> GetAllAsync(
         CancellationToken cancellationToken = default)
     {
-        return await _context.Set<Brand>()
+        return await Entities
             .AsNoTracking()
             .OrderBy(b => b.Name)
             .ToListAsync(cancellationToken);
@@ -59,7 +52,7 @@ public sealed class BrandRepository : IBrandRepository
         CancellationToken cancellationToken = default)
     {
         name = name.Trim();
-        return await _context.Set<Brand>()
+        return await Entities
     .AnyAsync(
         b => b.Name.ToLower() == name.ToLower(),
         cancellationToken);

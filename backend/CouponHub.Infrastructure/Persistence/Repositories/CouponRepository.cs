@@ -1,26 +1,28 @@
 ﻿using CouponHub.Application.Abstractions.Repositories;
 using CouponHub.Domain.Entities;
+using CouponHub.Infrastructure.Persistence.Repositories.Base;
 using Microsoft.EntityFrameworkCore;
 
 namespace CouponHub.Infrastructure.Persistence.Repositories;
 
-public sealed class CouponRepository : ICouponRepository
+public sealed class CouponRepository
+    : Repository<Coupon>, ICouponRepository
 {
-    private readonly ApplicationDbContext _context;
-
     public CouponRepository(ApplicationDbContext context)
+        : base(context)
     {
-        _context = context;
     }
 
-    public async Task<Coupon> AddAsync(
-    Coupon coupon,
-    CancellationToken cancellationToken = default)
+    public override async Task<Coupon> AddAsync(
+        Coupon coupon,
+        CancellationToken cancellationToken = default)
     {
-        await _context.Set<Coupon>()
-            .AddAsync(coupon, cancellationToken);
+        await Entities.AddAsync(
+            coupon,
+            cancellationToken);
 
-        await _context.SaveChangesAsync(cancellationToken);
+        await SaveChangesAsync(
+            cancellationToken);
 
         return await GetByIdAsync(
             coupon.Id,
@@ -33,7 +35,7 @@ public sealed class CouponRepository : ICouponRepository
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        return await _context.Set<Coupon>()
+        return await Entities
             .AsNoTracking()
             .Include(c => c.Brand)
             .FirstOrDefaultAsync(
@@ -41,26 +43,44 @@ public sealed class CouponRepository : ICouponRepository
                 cancellationToken);
     }
 
+    public async Task<Coupon?> GetByCodeAsync(
+        Guid brandId,
+        string couponCode,
+        CancellationToken cancellationToken = default)
+    {
+        couponCode = couponCode.Trim();
+
+        return await Entities
+            .AsNoTracking()
+            .Include(c => c.Brand)
+            .FirstOrDefaultAsync(
+                c => c.BrandId == brandId &&
+                     c.CouponCode.ToLower() == couponCode.ToLower(),
+                cancellationToken);
+    }
+
     public async Task<IEnumerable<Coupon>> GetAllAsync(
         CancellationToken cancellationToken = default)
     {
-        return await _context.Set<Coupon>()
+        return await Entities
             .AsNoTracking()
             .Include(c => c.Brand)
+            .OrderBy(c => c.Brand.Name)
+            .ThenBy(c => c.CouponCode)
             .ToListAsync(cancellationToken);
     }
 
     public async Task<bool> ExistsByCodeAsync(
-    Guid brandId,
-    string couponCode,
-    CancellationToken cancellationToken = default)
+        Guid brandId,
+        string couponCode,
+        CancellationToken cancellationToken = default)
     {
         couponCode = couponCode.Trim();
 
-        return await _context.Set<Coupon>()
+        return await Entities
             .AnyAsync(
                 c => c.BrandId == brandId &&
-                     c.CouponCode.ToUpper() == couponCode.ToUpper(),
+                     c.CouponCode.ToLower() == couponCode.ToLower(),
                 cancellationToken);
     }
 }

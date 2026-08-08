@@ -3,6 +3,7 @@ using CouponHub.Api.Contracts.Responses;
 using CouponHub.Application.Coupons.Commands.CreateCoupon;
 using CouponHub.Application.Coupons.Queries.GetCouponById;
 using CouponHub.Application.Coupons.Queries.GetCoupons;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CouponHub.Api.Controllers;
@@ -11,29 +12,21 @@ namespace CouponHub.Api.Controllers;
 [Route("api/coupons")]
 public sealed class CouponsController : ControllerBase
 {
-    private readonly CreateCouponCommandHandler _createCouponHandler;
-    private readonly GetCouponByIdQueryHandler _getCouponByIdHandler;
-    private readonly GetCouponsQueryHandler _getCouponsHandler;
+    private readonly ISender _sender;
 
-    public CouponsController(
-        CreateCouponCommandHandler createCouponHandler,
-        GetCouponByIdQueryHandler getCouponByIdHandler,
-        GetCouponsQueryHandler getCouponsHandler)
+    public CouponsController(ISender sender)
     {
-        _createCouponHandler = createCouponHandler;
-        _getCouponByIdHandler = getCouponByIdHandler;
-        _getCouponsHandler = getCouponsHandler;
+        _sender = sender;
     }
 
     [HttpPost]
     [ProducesResponseType(typeof(CouponResponse), StatusCodes.Status201Created)]
-    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<CouponResponse>> Create(
         [FromBody] CreateCouponRequest request,
         CancellationToken cancellationToken)
     {
-        var coupon = await _createCouponHandler.Handle(
+        var coupon = await _sender.Send(
             new CreateCouponCommand(
                 request.BrandId,
                 request.CouponCode,
@@ -60,7 +53,7 @@ public sealed class CouponsController : ControllerBase
     public async Task<ActionResult<IEnumerable<CouponResponse>>> GetAll(
         CancellationToken cancellationToken)
     {
-        var coupons = await _getCouponsHandler.Handle(
+        var coupons = await _sender.Send(
             new GetCouponsQuery(),
             cancellationToken);
 
@@ -74,7 +67,7 @@ public sealed class CouponsController : ControllerBase
         Guid id,
         CancellationToken cancellationToken)
     {
-        var coupon = await _getCouponByIdHandler.Handle(
+        var coupon = await _sender.Send(
             new GetCouponByIdQuery(id),
             cancellationToken);
 

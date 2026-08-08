@@ -1,4 +1,5 @@
 using CouponHub.Api.Contracts.Responses;
+using FluentValidation;
 using CouponHub.Domain.Exceptions;
 using System.Text.Json;
 
@@ -30,49 +31,55 @@ public sealed class ExceptionMiddleware
     }
 
     private async Task HandleExceptionAsync(
-     HttpContext context,
-     Exception exception)
+        HttpContext context,
+        Exception exception)
     {
         _logger.LogError(
             exception,
-            "An unhandled exception occurred. TraceId: {TraceId}",
+            "Unhandled exception. TraceId: {TraceId}",
             context.TraceIdentifier);
 
-        var (statusCode, title, detail) = exception switch
+        var(statusCode, title, errors) = exception switch
         {
             ValidationException ex => (
                 StatusCodes.Status400BadRequest,
-                "Validation Error",
-                ex.Message),
+                "Validation Failed",
+                ex.Errors
+                    .Select(e => e.ErrorMessage)
+                    .Distinct()
+                    .ToList()),
 
             ConflictException ex => (
                 StatusCodes.Status409Conflict,
                 "Conflict",
-                ex.Message),
+                new List<string> { ex.Message }),
 
             NotFoundException ex => (
                 StatusCodes.Status404NotFound,
                 "Resource Not Found",
-                ex.Message),
+                new List<string> { ex.Message }),
 
             DomainException ex => (
                 StatusCodes.Status400BadRequest,
                 "Domain Error",
-                ex.Message),
+                new List<string> { ex.Message }),
 
             _ => (
                 StatusCodes.Status500InternalServerError,
                 "Internal Server Error",
-                "An unexpected error occurred.")
+                new List<string>
+                {
+            "An unexpected error occurred."
+                })
         };
 
-        context.Response.ContentType = "application/json";
         context.Response.StatusCode = statusCode;
+        context.Response.ContentType = "application/json";
 
         var response = new ApiErrorResponse(
             statusCode,
             title,
-            detail,
+            errors,
             context.TraceIdentifier);
 
         await context.Response.WriteAsync(

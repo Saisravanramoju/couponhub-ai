@@ -1,5 +1,6 @@
 ﻿using CouponHub.Domain.Enums;
-
+using CouponHub.Domain.Entities;
+using MediatR;
 namespace CouponHub.Application.Coupons.Commands.CreateCoupon;
 
 public sealed record CreateCouponCommand(
@@ -12,4 +13,4 @@ public sealed record CreateCouponCommand(
     decimal? MinimumOrderAmount,
     decimal? MaximumDiscount,
     DateTime? ExpiryDate,
-    CouponSource CouponSource);
+    CouponSource CouponSource): IRequest<Coupon>;

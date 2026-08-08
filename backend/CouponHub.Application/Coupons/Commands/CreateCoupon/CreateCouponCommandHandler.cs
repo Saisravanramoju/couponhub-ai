@@ -1,27 +1,30 @@
 ﻿using CouponHub.Application.Abstractions.Repositories;
 using CouponHub.Domain.Entities;
 using CouponHub.Domain.Exceptions;
+using CouponHub.Domain.ValueObjects;
+using MediatR;
 
 namespace CouponHub.Application.Coupons.Commands.CreateCoupon;
 
 public sealed class CreateCouponCommandHandler
+    : IRequestHandler<CreateCouponCommand, Coupon>
 {
-    private readonly IBrandRepository _brandRepository;
     private readonly ICouponRepository _couponRepository;
+    private readonly IBrandRepository _brandRepository;
 
     public CreateCouponCommandHandler(
-        IBrandRepository brandRepository,
-        ICouponRepository couponRepository)
+        ICouponRepository couponRepository,
+        IBrandRepository brandRepository)
     {
-        _brandRepository = brandRepository;
         _couponRepository = couponRepository;
+        _brandRepository = brandRepository;
     }
 
     public async Task<Coupon> Handle(
-    CreateCouponCommand command,
-    CancellationToken cancellationToken = default)
+        CreateCouponCommand command,
+        CancellationToken cancellationToken)
     {
-        // 1. Verify Brand exists
+        // 1. Verify brand exists
         var brand = await _brandRepository.GetByIdAsync(
             command.BrandId,
             cancellationToken);
@@ -33,32 +36,37 @@ public sealed class CreateCouponCommandHandler
                 command.BrandId);
         }
 
-        // 2. Check duplicate coupon code
+        // 2. Verify coupon code is unique for the brand
         if (await _couponRepository.ExistsByCodeAsync(
-            command.BrandId,
-            command.CouponCode,
-            cancellationToken))
+                command.BrandId,
+                command.CouponCode,
+                cancellationToken))
         {
             throw new ConflictException(
                 $"Coupon code '{command.CouponCode}' already exists for brand '{brand.Name}'.");
         }
 
-        // 3. Create the domain entity
+        // 3. Let the domain validate itself
+        var details = new CouponDetails(
+     command.CouponCode,
+     command.Description,
+     command.Category,
+     command.DiscountType,
+     command.DiscountValue,
+     command.MinimumOrderAmount,
+     command.MaximumDiscount,
+     command.ExpiryDate,
+     command.CouponSource);
+
         var coupon = new Coupon(
             command.BrandId,
-            command.CouponCode,
-            command.Description,
-            command.Category,
-            command.DiscountType,
-            command.DiscountValue,
-            command.MinimumOrderAmount,
-            command.MaximumDiscount,
-            command.ExpiryDate,
-            command.CouponSource);
+            details);
 
-        // 4. Save and return the fully populated entity
-        return await _couponRepository.AddAsync(
+        // 4. Persist
+        coupon = await _couponRepository.AddAsync(
             coupon,
             cancellationToken);
+
+        return coupon;
     }
 }
