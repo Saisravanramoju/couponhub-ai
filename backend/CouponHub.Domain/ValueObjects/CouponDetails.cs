@@ -1,9 +1,8 @@
-﻿using CouponHub.Domain.Enums;
+﻿namespace CouponHub.Domain.ValueObjects;
 
-namespace CouponHub.Application.Coupons.Commands.CreateCoupon;
+using CouponHub.Domain.Enums;
 
-public sealed record CreateCouponCommand(
-    Guid BrandId,
+public sealed record CouponDetails(
     string CouponCode,
     string Description,
     CouponCategory Category,
@@ -12,4 +11,4 @@ public sealed record CreateCouponCommand(
     decimal? MinimumOrderAmount,
     decimal? MaximumDiscount,
     DateTime? ExpiryDate,
-    CouponSource Source);
+    CouponSource CouponSource);

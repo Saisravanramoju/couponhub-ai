@@ -1,13 +1,10 @@
 ﻿using CouponHub.Domain.Entities;
 
+
 namespace CouponHub.Application.Abstractions.Repositories;
 
-public interface IBrandRepository
+public interface IBrandRepository : IRepository<Brand>
 {
-    Task AddAsync(
-        Brand brand,
-        CancellationToken cancellationToken = default);
-
     Task<Brand?> GetByIdAsync(
         Guid id,
         CancellationToken cancellationToken = default);

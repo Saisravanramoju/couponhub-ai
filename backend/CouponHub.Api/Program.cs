@@ -1,12 +1,28 @@
 using CouponHub.Api.Middleware;
 using CouponHub.Application;
+using CouponHub.Application.Behaviors;
 using CouponHub.Infrastructure;
+using FluentValidation;
+using MediatR;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplication();
+
+builder.Services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssembly(
+        typeof(CouponHub.Application.DependencyInjection).Assembly);
+});
+
+builder.Services.AddValidatorsFromAssembly(
+    typeof(CouponHub.Application.DependencyInjection).Assembly);
+
+builder.Services.AddTransient(
+    typeof(IPipelineBehavior<,>),
+    typeof(ValidationBehavior<,>));
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>

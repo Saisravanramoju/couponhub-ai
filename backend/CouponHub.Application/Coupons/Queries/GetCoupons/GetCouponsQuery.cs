@@ -1,3 +1,5 @@
-namespace CouponHub.Application.Coupons.Queries.GetCoupons;
+using CouponHub.Domain.Entities;
+using MediatR;
 
-public sealed record GetCouponsQuery;
+public sealed record GetCouponsQuery()
+    : IRequest<IEnumerable<Coupon>>;

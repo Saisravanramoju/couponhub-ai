@@ -1,10 +1,14 @@
 ﻿using CouponHub.Application.Abstractions.Repositories;
+using CouponHub.Application.Brands.Commands.CreateBrand;
 using CouponHub.Domain.Entities;
 using CouponHub.Domain.Exceptions;
+using MediatR;
+
 
 namespace CouponHub.Application.Brands.Commands.CreateBrand;
 
 public sealed class CreateBrandCommandHandler
+    : IRequestHandler<CreateBrandCommand, Brand>
 {
     private readonly IBrandRepository _brandRepository;
 

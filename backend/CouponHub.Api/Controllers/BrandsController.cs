@@ -3,6 +3,7 @@ using CouponHub.Api.Contracts.Responses;
 using CouponHub.Application.Brands.Commands.CreateBrand;
 using CouponHub.Application.Brands.Queries.GetBrandById;
 using CouponHub.Application.Brands.Queries.GetBrands;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CouponHub.Api.Controllers;
@@ -11,18 +12,11 @@ namespace CouponHub.Api.Controllers;
 [Route("api/brands")]
 public sealed class BrandsController : ControllerBase
 {
-    private readonly CreateBrandCommandHandler _createBrandHandler;
-    private readonly GetBrandByIdQueryHandler _getBrandByIdHandler;
-    private readonly GetBrandsQueryHandler _getBrandsHandler;
+    private readonly ISender _sender;
 
-    public BrandsController(
-        CreateBrandCommandHandler createBrandHandler,
-        GetBrandByIdQueryHandler getBrandByIdHandler,
-        GetBrandsQueryHandler getBrandsHandler)
+    public BrandsController(ISender sender)
     {
-        _createBrandHandler = createBrandHandler;
-        _getBrandByIdHandler = getBrandByIdHandler;
-        _getBrandsHandler = getBrandsHandler;
+        _sender = sender;
     }
 
     [HttpPost]
@@ -32,19 +26,17 @@ public sealed class BrandsController : ControllerBase
         [FromBody] CreateBrandRequest request,
         CancellationToken cancellationToken)
     {
-        var brand = await _createBrandHandler.Handle(
+        var brand = await _sender.Send(
             new CreateBrandCommand(
                 request.Name,
                 request.Category,
                 request.LogoUrl),
             cancellationToken);
 
-        var response = BrandResponse.FromEntity(brand);
-
         return CreatedAtAction(
             nameof(GetById),
-            new { id = response.Id },
-            response);
+            new { id = brand.Id },
+            BrandResponse.FromEntity(brand));
     }
 
     [HttpGet]
@@ -52,7 +44,7 @@ public sealed class BrandsController : ControllerBase
     public async Task<ActionResult<IEnumerable<BrandResponse>>> GetAll(
         CancellationToken cancellationToken)
     {
-        var brands = await _getBrandsHandler.Handle(
+        var brands = await _sender.Send(
             new GetBrandsQuery(),
             cancellationToken);
 
@@ -66,7 +58,7 @@ public sealed class BrandsController : ControllerBase
         Guid id,
         CancellationToken cancellationToken)
     {
-        var brand = await _getBrandByIdHandler.Handle(
+        var brand = await _sender.Send(
             new GetBrandByIdQuery(id),
             cancellationToken);
 
