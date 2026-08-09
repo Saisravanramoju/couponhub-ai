@@ -1,6 +1,8 @@
 ﻿using CouponHub.Domain.Common;
 using Microsoft.EntityFrameworkCore;
 using CouponHub.Application.Abstractions.Repositories;
+using CouponHub.Application.Abstractions.Specifications;
+using CouponHub.Infrastructure.Persistence.Specifications;
 
 namespace CouponHub.Infrastructure.Persistence.Repositories.Base;
 
@@ -40,5 +42,40 @@ public class Repository<TEntity> : IRepository<TEntity>
     {
         await Context.SaveChangesAsync(
             cancellationToken);
+    }
+    public virtual async Task<TEntity?> FirstOrDefaultAsync(
+    ISpecification<TEntity> specification,
+    CancellationToken cancellationToken = default)
+    {
+        return await SpecificationEvaluator
+            .GetQuery(Entities.AsQueryable(), specification)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public virtual async Task<IReadOnlyList<TEntity>> ListAsync(
+    ISpecification<TEntity> specification,
+    CancellationToken cancellationToken = default)
+    {
+        return await SpecificationEvaluator
+            .GetQuery(Entities.AsQueryable(), specification)
+            .ToListAsync(cancellationToken);
+    }
+
+    public virtual async Task<bool> AnyAsync(
+    ISpecification<TEntity> specification,
+    CancellationToken cancellationToken = default)
+    {
+        return await SpecificationEvaluator
+            .GetQuery(Entities.AsQueryable(), specification)
+            .AnyAsync(cancellationToken);
+    }
+
+    public virtual async Task<int> CountAsync(
+    ISpecification<TEntity> specification,
+    CancellationToken cancellationToken = default)
+    {
+        return await SpecificationEvaluator
+            .GetQuery(Entities.AsQueryable(), specification)
+            .CountAsync(cancellationToken);
     }
 }
