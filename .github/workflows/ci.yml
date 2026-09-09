@@ -1,0 +1,53 @@
+name: CouponHub CI
+on:
+  push:
+    branches: [main, 'feature/**']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: couponhub
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: couponhub_tests
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U couponhub -d couponhub_tests"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      COUPONHUB_TEST_DB: Host=localhost;Port=5432;Database=couponhub_tests;Username=couponhub;Password=ci-only-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      - run: dotnet restore backend/CouponHub.sln
+      - run: dotnet build backend/CouponHub.sln -c Release --no-restore
+      - run: dotnet test backend/CouponHub.sln -c Release --no-build --logger trx
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-results
+          path: '**/TestResults/*.trx'
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - run: gradle -p android :app:assembleDebug :app:lintDebug :app:testDebugUnitTest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: couponhub-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
