@@ -41,6 +41,9 @@ public sealed class ExceptionMiddleware
 
         var(statusCode, title, errors) = exception switch
         {
+            Microsoft.EntityFrameworkCore.DbUpdateException ex when ex.InnerException is Npgsql.PostgresException { SqlState: "23505" } => (
+                StatusCodes.Status409Conflict, "Conflict", new List<string> { "This record already exists." }),
+
             ValidationException ex => (
                 StatusCodes.Status400BadRequest,
                 "Validation Failed",

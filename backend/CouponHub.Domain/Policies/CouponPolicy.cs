@@ -1,4 +1,4 @@
-﻿using CouponHub.Domain.Enums;
+using CouponHub.Domain.Enums;
 using CouponHub.Domain.Exceptions;
 using CouponHub.Domain.ValueObjects;
 
@@ -10,6 +10,10 @@ public static class CouponPolicy
       Guid brandId,
       CouponDetails details)
     {
+        if (!Enum.IsDefined(details.Category) || !Enum.IsDefined(details.DiscountType) || !Enum.IsDefined(details.CouponSource))
+            throw new DomainException("Invalid coupon classification.");
+        if (details.CouponCode?.Length > 100 || details.Description?.Length > 500)
+            throw new DomainException("Coupon code or description is too long.");
         ValidateCommonRules(
             brandId,
             details.CouponCode,

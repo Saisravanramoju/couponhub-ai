@@ -96,3 +96,15 @@ generated/
 
 .env
 .env.*
+
+# CouponHub local credentials and generated output
+.env
+.env.*
+!.env.example
+**/local.properties
+**/.gradle/
+**/build/
+**/captures/
+**/*.jks
+**/*.keystore
+**/TestResults/

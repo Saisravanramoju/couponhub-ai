@@ -1,4 +1,4 @@
-﻿using CouponHub.Application.Coupons.Commands.CreateCoupon;
+using CouponHub.Application.Coupons.Commands.CreateCoupon;
 using FluentValidation;
 
 namespace CouponHub.Application.Validators.Coupons;
@@ -15,7 +15,7 @@ public sealed class CreateCouponCommandValidator
         RuleFor(x => x.CouponCode)
             .NotEmpty()
             .WithMessage("Coupon code is required.")
-            .Must(code => code.Trim() == code)
+            .Must(code => code is not null && code.Trim() == code)
             .WithMessage("Coupon code cannot contain leading or trailing spaces.")
             .MaximumLength(100)
             .WithMessage("Coupon code cannot exceed 100 characters.");
@@ -23,7 +23,7 @@ public sealed class CreateCouponCommandValidator
         RuleFor(x => x.Description)
             .NotEmpty()
             .WithMessage("Description is required.")
-            .Must(description => description.Trim() == description)
+            .Must(description => description is not null && description.Trim() == description)
             .WithMessage("Description cannot contain leading or trailing spaces.")
             .MaximumLength(500)
             .WithMessage("Description cannot exceed 500 characters.");
@@ -41,7 +41,7 @@ public sealed class CreateCouponCommandValidator
             .WithMessage("Invalid coupon source.");
 
         RuleFor(x => x.DiscountValue)
-            .GreaterThan(0)
+            .GreaterThanOrEqualTo(0)
             .WithMessage("Discount value must be greater than zero.");
 
         RuleFor(x => x.MinimumOrderAmount)
@@ -55,14 +55,9 @@ public sealed class CreateCouponCommandValidator
             .WithMessage("Maximum discount cannot be negative.");
 
         RuleFor(x => x.ExpiryDate)
-            .GreaterThan(DateTime.UtcNow)
+            .Must(date => !date.HasValue || date.Value > DateTime.UtcNow)
             .When(x => x.ExpiryDate.HasValue)
             .WithMessage("Expiry date must be in the future.");
 
-        RuleFor(x => x)
-            .Must(x =>
-                !x.MaximumDiscount.HasValue ||
-                x.MaximumDiscount.Value >= x.DiscountValue)
-            .WithMessage("Maximum discount cannot be less than discount value.");
     }
 }
