@@ -1,6 +1,7 @@
 using CouponHub.Application.Abstractions.Repositories;
 using CouponHub.Domain.Entities;
 using MediatR;
+using CouponHub.Application.Specifications.Coupons;
 
 namespace CouponHub.Application.Coupons.Queries.GetCoupons;
 
@@ -18,7 +19,8 @@ public sealed class GetCouponsQueryHandler
     GetCouponsQuery query,
     CancellationToken cancellationToken = default)
     {
-        return await _couponRepository.GetAllAsync(
-            cancellationToken);
+       return await _couponRepository.ListAsync(
+    new AllCouponsSpecification(),
+    cancellationToken);
     }
 }

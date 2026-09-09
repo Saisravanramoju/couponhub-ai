@@ -14,8 +14,8 @@ public sealed class CouponRepository
     }
 
     public override async Task<Coupon> AddAsync(
-        Coupon coupon,
-        CancellationToken cancellationToken = default)
+    Coupon coupon,
+    CancellationToken cancellationToken = default)
     {
         await Entities.AddAsync(
             coupon,
@@ -24,23 +24,7 @@ public sealed class CouponRepository
         await SaveChangesAsync(
             cancellationToken);
 
-        return await GetByIdAsync(
-            coupon.Id,
-            cancellationToken)
-            ?? throw new InvalidOperationException(
-                "Coupon was saved but could not be retrieved.");
-    }
-
-    public async Task<Coupon?> GetByIdAsync(
-        Guid id,
-        CancellationToken cancellationToken = default)
-    {
-        return await Entities
-            .AsNoTracking()
-            .Include(c => c.Brand)
-            .FirstOrDefaultAsync(
-                c => c.Id == id,
-                cancellationToken);
+        return coupon;
     }
 
     public async Task<Coupon?> GetByCodeAsync(
@@ -54,31 +38,6 @@ public sealed class CouponRepository
             .AsNoTracking()
             .Include(c => c.Brand)
             .FirstOrDefaultAsync(
-                c => c.BrandId == brandId &&
-                     c.CouponCode.ToLower() == couponCode.ToLower(),
-                cancellationToken);
-    }
-
-    public async Task<IEnumerable<Coupon>> GetAllAsync(
-        CancellationToken cancellationToken = default)
-    {
-        return await Entities
-            .AsNoTracking()
-            .Include(c => c.Brand)
-            .OrderBy(c => c.Brand.Name)
-            .ThenBy(c => c.CouponCode)
-            .ToListAsync(cancellationToken);
-    }
-
-    public async Task<bool> ExistsByCodeAsync(
-        Guid brandId,
-        string couponCode,
-        CancellationToken cancellationToken = default)
-    {
-        couponCode = couponCode.Trim();
-
-        return await Entities
-            .AnyAsync(
                 c => c.BrandId == brandId &&
                      c.CouponCode.ToLower() == couponCode.ToLower(),
                 cancellationToken);

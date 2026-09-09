@@ -1,4 +1,5 @@
 using CouponHub.Application.Abstractions.Repositories;
+using CouponHub.Application.Specifications.Brands;
 using CouponHub.Domain.Entities;
 using CouponHub.Domain.Exceptions;
 using MediatR;
@@ -21,9 +22,9 @@ public sealed class GetBrandByIdQueryHandler
         GetBrandByIdQuery query,
         CancellationToken cancellationToken = default)
     {
-        var brand = await _brandRepository.GetByIdAsync(
-            query.Id,
-            cancellationToken);
+        var brand = await _brandRepository.FirstOrDefaultAsync(
+                    new BrandByIdSpecification(query.Id),
+                    cancellationToken);
 
         if (brand is null)
         {

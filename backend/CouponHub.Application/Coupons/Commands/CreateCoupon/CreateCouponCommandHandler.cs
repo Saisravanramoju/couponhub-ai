@@ -1,4 +1,6 @@
 ﻿using CouponHub.Application.Abstractions.Repositories;
+using CouponHub.Application.Specifications.Brands;
+using CouponHub.Application.Specifications.Coupons;
 using CouponHub.Domain.Entities;
 using CouponHub.Domain.Exceptions;
 using CouponHub.Domain.ValueObjects;
@@ -19,14 +21,13 @@ public sealed class CreateCouponCommandHandler
         _couponRepository = couponRepository;
         _brandRepository = brandRepository;
     }
-
     public async Task<Coupon> Handle(
         CreateCouponCommand command,
         CancellationToken cancellationToken)
     {
         // 1. Verify brand exists
-        var brand = await _brandRepository.GetByIdAsync(
-            command.BrandId,
+        var brand = await _brandRepository.FirstOrDefaultAsync(
+            new BrandByIdSpecification(command.BrandId),
             cancellationToken);
 
         if (brand is null)
@@ -37,36 +38,37 @@ public sealed class CreateCouponCommandHandler
         }
 
         // 2. Verify coupon code is unique for the brand
-        if (await _couponRepository.ExistsByCodeAsync(
+        var couponExists = await _couponRepository.AnyAsync(
+            new CouponByCodeSpecification(
                 command.BrandId,
-                command.CouponCode,
-                cancellationToken))
+                command.CouponCode),
+            cancellationToken);
+
+        if (couponExists)
         {
             throw new ConflictException(
-                $"Coupon code '{command.CouponCode}' already exists for brand '{brand.Name}'.");
+                $"Coupon code '{command.CouponCode}' already exists.");
         }
 
-        // 3. Let the domain validate itself
+        // 3. Create coupon details
         var details = new CouponDetails(
-     command.CouponCode,
-     command.Description,
-     command.Category,
-     command.DiscountType,
-     command.DiscountValue,
-     command.MinimumOrderAmount,
-     command.MaximumDiscount,
-     command.ExpiryDate,
-     command.CouponSource);
+            command.CouponCode,
+            command.Description,
+            command.Category,
+            command.DiscountType,
+            command.DiscountValue,
+            command.MinimumOrderAmount,
+            command.MaximumDiscount,
+            command.ExpiryDate,
+            command.CouponSource);
 
         var coupon = new Coupon(
             command.BrandId,
             details);
 
         // 4. Persist
-        coupon = await _couponRepository.AddAsync(
+        return await _couponRepository.AddAsync(
             coupon,
             cancellationToken);
-
-        return coupon;
     }
 }

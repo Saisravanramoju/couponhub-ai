@@ -6,9 +6,4 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Folder Include="Specifications\Coupons\" />
-    <Folder Include="Specifications\Brands\" />
-  </ItemGroup>
-
 </Project>

@@ -16,17 +16,6 @@ public sealed class BrandRepository
     {
     }
 
-    public async Task<Brand?> GetByIdAsync(
-        Guid id,
-        CancellationToken cancellationToken = default)
-    {
-        return await Entities
-            .AsNoTracking()
-            .FirstOrDefaultAsync(
-                b => b.Id == id,
-                cancellationToken);
-    }
-
     public async Task<Brand?> GetByNameAsync(
         string name,
         CancellationToken cancellationToken = default)
