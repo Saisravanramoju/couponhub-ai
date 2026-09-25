@@ -15,15 +15,11 @@ public sealed class GetCouponByIdQueryHandler
         _couponRepository = couponRepository;
     }
 
-    public Task<Coupon?> Handle(
+    public async Task<Coupon> Handle(
         GetCouponByIdQuery query,
         CancellationToken cancellationToken = default)
     {
-        var coupon = _couponRepository.GetByIdAsync(query.Id, cancellationToken);
-        if (coupon is null)
-        {
-            throw new NotFoundException("Brand", query.Id);
-        }
-        return coupon;
+        return await _couponRepository.GetByIdAsync(query.Id, cancellationToken)
+            ?? throw new NotFoundException("Coupon", query.Id);
     }
 }

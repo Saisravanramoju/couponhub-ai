@@ -20,12 +20,13 @@ All 55 changed files in pull request #8 were reviewed across backend, Android, p
 
 No committed production credential or OpenAI key was found. `.env` is excluded from Git and the Docker build context. The Android client stores the session with Android Keystore-backed AES-GCM; the backend stores only session-token hashes. Debug cleartext access is limited to emulator/localhost targets, while release builds reject cleartext traffic.
 
-The previous CI run exposed two reproducibility problems:
+The previous CI runs exposed three problems:
 
 1. Backend integration tests received an empty application connection string because infrastructure registration captured configuration before `WebApplicationFactory` added test configuration.
-2. `android-actions/setup-android@v3` attempted to install the obsolete SDK package named `tools` and failed before Gradle ran.
+2. The September 2026 Ubuntu runner did not expose `sdkmanager`, while `android-actions/setup-android@v3` attempted to install the removed SDK package named `tools`.
+3. The coupon-by-ID handler checked whether an unawaited `Task` was null instead of checking its result, so an invisible private coupon caused HTTP 500 rather than HTTP 404.
 
-The follow-up changes defer database connection-string resolution until the EF Core context is created, provide the CI application and test connection strings explicitly, remove the failing Android setup action, install only SDK Platform/Build-Tools 35, and execute the committed Gradle wrapper.
+The follow-up changes defer database connection-string resolution until the EF Core context is created, provide the CI application and test connection strings explicitly, await the coupon lookup and translate a missing result to `NotFoundException`, use `android-actions/setup-android@v4` with explicit SDK 35 packages, and execute the committed Gradle wrapper.
 
 ## Merge gate
 
