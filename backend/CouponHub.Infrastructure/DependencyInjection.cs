@@ -11,15 +11,21 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration _)
     {
-        var connectionString =
-            configuration.GetConnectionString("DefaultConnection")
-            ?? throw new InvalidOperationException(
-                "DefaultConnection connection string not found.");
+        services.AddDbContext<ApplicationDbContext>((serviceProvider, options) =>
+        {
+            var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
 
-        services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseNpgsql(connectionString));
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException(
+                    "DefaultConnection connection string not found.");
+            }
+
+            options.UseNpgsql(connectionString);
+        });
 
         services.AddScoped<IBrandRepository, BrandRepository>();
 
