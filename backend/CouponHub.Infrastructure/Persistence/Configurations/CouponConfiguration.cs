@@ -1,4 +1,4 @@
-﻿using CouponHub.Domain.Entities;
+using CouponHub.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -25,6 +25,10 @@ public sealed class CouponConfiguration : IEntityTypeConfiguration<Coupon>
                .WithMany(b => b.Coupons)
                .HasForeignKey(c => c.BrandId)
                .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(c => c.OwnerId).HasColumnName("owner_id");
+        builder.HasOne<CouponHub.Infrastructure.Personalization.Account>().WithMany()
+            .HasForeignKey(c => c.OwnerId).OnDelete(DeleteBehavior.Cascade);
 
         // Coupon Code
         builder.Property(c => c.CouponCode)
@@ -85,8 +89,8 @@ public sealed class CouponConfiguration : IEntityTypeConfiguration<Coupon>
                .HasColumnName("updated_at");
 
         // Indexes
-        builder.HasIndex(c => new { c.BrandId, c.CouponCode })
-        .IsUnique();
+        builder.HasIndex(c => new { c.BrandId, c.CouponCode }).IsUnique().HasFilter("owner_id IS NULL");
+        builder.HasIndex(c => new { c.OwnerId, c.BrandId, c.CouponCode }).IsUnique().HasFilter("owner_id IS NOT NULL");
 
         builder.HasIndex(c => c.IsActive);
     }

@@ -20,6 +20,7 @@ public sealed class BrandsController : ControllerBase
     }
 
     [HttpPost]
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(BrandResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<BrandResponse>> Create(

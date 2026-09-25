@@ -22,7 +22,7 @@ public sealed class CreateCouponRequest
     [Required]
     public DiscountType DiscountType { get; init; }
 
-    [Range(typeof(decimal), "0.01", "999999")]
+    [Range(typeof(decimal), "0", "999999")]
     public decimal DiscountValue { get; init; }
 
     [Range(typeof(decimal), "0", "999999")]

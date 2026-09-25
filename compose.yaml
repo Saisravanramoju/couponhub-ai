@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:17
+    ports:
+      - "127.0.0.1:5433:5432"
+    environment:
+      POSTGRES_DB: couponhub
+      POSTGRES_USER: couponhub
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - couponhub-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U couponhub -d couponhub"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+  migrate:
+    build: .
+    command: ["--migrate"]
+    environment:
+      ConnectionStrings__DefaultConnection: Host=db;Database=couponhub;Username=couponhub;Password=${POSTGRES_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+  api:
+    build: .
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=db;Database=couponhub;Username=couponhub;Password=${POSTGRES_PASSWORD}
+      AI__ApiKey: ${OPENAI_API_KEY:-}
+      AI__Model: ${OPENAI_MODEL:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+volumes:
+  couponhub-data:

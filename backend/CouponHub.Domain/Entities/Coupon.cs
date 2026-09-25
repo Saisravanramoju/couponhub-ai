@@ -1,4 +1,4 @@
-﻿using CouponHub.Domain.Common;
+using CouponHub.Domain.Common;
 using CouponHub.Domain.Enums;
 using CouponHub.Domain.Exceptions;
 using CouponHub.Domain.ValueObjects;
@@ -8,6 +8,10 @@ namespace CouponHub.Domain.Entities;
 
 public class Coupon : BaseEntity
 {
+    public Guid? OwnerId { get; private set; }
+
+    public void AssignOwner(Guid ownerId) { OwnerId = ownerId; }
+
     public Guid BrandId { get; private set; }
     public Brand Brand { get; private set; } = null!;
 
@@ -46,7 +50,7 @@ public class Coupon : BaseEntity
 
         BrandId = brandId;
 
-        CouponCode = details.CouponCode.Trim();
+        CouponCode = details.CouponCode.Trim().ToUpperInvariant();
 
         Description = details.Description.Trim();
 
@@ -71,6 +75,23 @@ public class Coupon : BaseEntity
 
     
     // Method to update the coupon properties
+    public void Publish() { OwnerId = null; Touch(); }
+
+    public void Update(CouponDetails details)
+    {
+        CouponPolicy.Validate(BrandId, details);
+        CouponCode = details.CouponCode.Trim().ToUpperInvariant();
+        Description = details.Description.Trim();
+        Category = details.Category;
+        DiscountType = details.DiscountType;
+        DiscountValue = details.DiscountValue;
+        MinimumOrderAmount = details.MinimumOrderAmount;
+        MaximumDiscount = details.MaximumDiscount;
+        ExpiryDate = details.ExpiryDate;
+        CouponSource = details.CouponSource;
+        Touch();
+    }
+
     public void Deactivate()
     {
         if (!IsActive)

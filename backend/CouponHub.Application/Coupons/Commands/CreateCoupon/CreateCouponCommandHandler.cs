@@ -1,23 +1,26 @@
-﻿using CouponHub.Application.Abstractions.Repositories;
+using CouponHub.Application.Abstractions.Repositories;
 using CouponHub.Domain.Entities;
 using CouponHub.Domain.Exceptions;
 using CouponHub.Domain.ValueObjects;
 using MediatR;
+using CouponHub.Application.Personalization;
 
 namespace CouponHub.Application.Coupons.Commands.CreateCoupon;
 
 public sealed class CreateCouponCommandHandler
     : IRequestHandler<CreateCouponCommand, Coupon>
 {
+    private readonly ICurrentUser _user;
     private readonly ICouponRepository _couponRepository;
     private readonly IBrandRepository _brandRepository;
 
     public CreateCouponCommandHandler(
         ICouponRepository couponRepository,
-        IBrandRepository brandRepository)
+        IBrandRepository brandRepository, ICurrentUser user)
     {
         _couponRepository = couponRepository;
         _brandRepository = brandRepository;
+        _user = user;
     }
 
     public async Task<Coupon> Handle(
@@ -29,7 +32,7 @@ public sealed class CreateCouponCommandHandler
             command.BrandId,
             cancellationToken);
 
-        if (brand is null)
+        if (brand is null || !brand.IsActive)
         {
             throw new NotFoundException(
                 "Brand",
@@ -61,6 +64,9 @@ public sealed class CreateCouponCommandHandler
         var coupon = new Coupon(
             command.BrandId,
             details);
+
+        if (_user.Id is not Guid ownerId) throw new DomainException("Sign in to create a coupon.");
+        coupon.AssignOwner(ownerId);
 
         // 4. Persist
         coupon = await _couponRepository.AddAsync(
