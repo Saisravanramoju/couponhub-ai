@@ -1,6 +1,7 @@
 package com.couponhub.ai
 
 import android.Manifest
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -28,22 +29,45 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.Instant
 
 class MainActivity : ComponentActivity() {
+    private var incomingShare by mutableStateOf<SharedCouponPayload?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        incomingShare = SharedCouponIntentParser.parse(intent)
         setContent {
             MaterialTheme(colorScheme = lightColorScheme(primary = Color(0xFF185C44), secondary = Color(0xFFAD622E),
                 background = Color(0xFFFAF8F2), surface = Color(0xFFFAF8F2))) {
                 val vm: CouponViewModel = viewModel(factory = object : ViewModelProvider.Factory {
                     @Suppress("UNCHECKED_CAST") override fun <T : ViewModel> create(modelClass: Class<T>): T = CouponViewModel(application as CouponHubApp) as T
                 })
-                CouponHub(vm)
+                CouponHub(vm, incomingShare) {
+                    incomingShare = null
+                    setIntent(Intent(this, MainActivity::class.java))
+                }
             }
         }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        incomingShare = SharedCouponIntentParser.parse(intent)
+    }
 }
 
-@Composable fun CouponHub(vm: CouponViewModel) {
+@Composable fun CouponHub(
+    vm: CouponViewModel,
+    sharedPayload: SharedCouponPayload?,
+    onSharedPayloadConsumed: () -> Unit
+) {
     var tab by remember { mutableStateOf("Explore") }
+    LaunchedEffect(sharedPayload, vm.loggedIn, vm.busy) {
+        if (sharedPayload != null && vm.loggedIn && !vm.busy) {
+            tab = "Import"
+            vm.acceptSharedContent(sharedPayload)
+            onSharedPayloadConsumed()
+        }
+    }
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp)) {
         Row(Modifier.fillMaxWidth().padding(vertical = 20.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Column { Text("CouponHub", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
@@ -54,6 +78,14 @@ class MainActivity : ComponentActivity() {
         if(vm.message.isNotBlank()) Text(vm.message, Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodyMedium)
         if(!vm.loggedIn) LoginScreen(vm)
         else {
+            if (vm.incompleteDrafts.isNotEmpty()) {
+                OutlinedButton(
+                    onClick = { tab = "Incomplete" },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("${vm.incompleteDrafts.size} incomplete coupon${if (vm.incompleteDrafts.size == 1) "" else "s"} — review")
+                }
+            }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 listOf("Explore", "For you", "Saved", "Import", "You").forEach { name ->
                     TextButton(onClick = { tab = name }, contentPadding = PaddingValues(4.dp)) {
@@ -67,7 +99,49 @@ class MainActivity : ComponentActivity() {
                     "For you" -> RecommendationScreen(vm)
                     "Saved" -> CouponList(vm, vm.saved)
                     "Import" -> ImportScreen(vm)
+                    "Incomplete" -> IncompleteDraftsScreen(vm) { tab = "Import" }
                     "You" -> ProfileScreen(vm)
+                }
+            }
+        }
+    }
+}
+
+@Composable fun IncompleteDraftsScreen(vm: CouponViewModel, onResume: () -> Unit) {
+    Column {
+        Text("Incomplete coupons", style = MaterialTheme.typography.headlineSmall)
+        Text(
+            "Shared, pasted, and recognized text stays on this device until you save or discard it.",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
+            items(vm.incompleteDrafts, key = { it.id }) { savedDraft ->
+                Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            savedDraft.captureSource.replace('-', ' ').replaceFirstChar { it.uppercase() },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            savedDraft.rawText.lineSequence().firstOrNull()?.take(120) ?: "Untitled coupon",
+                            fontWeight = FontWeight.Bold
+                        )
+                        val missing = savedDraft.missingFields.split('|').filter { it.isNotBlank() }
+                        Text(
+                            if (missing.isEmpty()) "Ready for final review" else "Missing: ${missing.joinToString()}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { vm.resumeImportDraft(savedDraft); onResume() }, enabled = !vm.busy) {
+                                Text("Resume")
+                            }
+                            TextButton(onClick = { vm.discardImportDraft(savedDraft.id) }, enabled = !vm.busy) {
+                                Text("Discard")
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -180,13 +254,34 @@ class MainActivity : ComponentActivity() {
 
 @Composable fun ImportScreen(vm: CouponViewModel) {
     var consent by remember { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> uri?.let(vm::ocr) }
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Bring your offers together", style = MaterialTheme.typography.headlineSmall)
-        Text("Paste an offer from an email or notification, or choose a screenshot. Remove personal information before AI extraction.")
-        OutlinedButton(onClick = { picker.launch("image/*") }, enabled = !vm.busy) { Text("Read a screenshot on this device") }
+        Text("Share an offer to CouponHub, paste text after copying it, or choose a screenshot. Remove personal information before AI extraction.")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { picker.launch("image/*") }, enabled = !vm.busy) {
+                Text("Choose screenshot")
+            }
+            OutlinedButton(
+                onClick = { vm.acceptPastedText(clipboard.getText()?.text.orEmpty()) },
+                enabled = !vm.busy
+            ) {
+                Text("Paste")
+            }
+        }
+        Text(
+            "Screenshot text recognition runs on this device. CouponHub reads the clipboard only when you tap Paste.",
+            style = MaterialTheme.typography.bodySmall
+        )
         SelectField("Source", vm.importSource, listOf("Manual", "Email", "Notification", "OCR", "Screenshot")) { vm.importSource = it }
-        OutlinedTextField(vm.importText, { vm.importText = it.take(12000) }, label = { Text("Offer text") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+        OutlinedTextField(vm.importText, vm::updateImportText, label = { Text("Offer text") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+        OutlinedButton(
+            onClick = { vm.saveCurrentImportForLater() },
+            enabled = !vm.busy && vm.importText.isNotBlank()
+        ) {
+            Text("Save incomplete coupon for later")
+        }
         Row { Checkbox(consent, { consent = it }); Text("I agree to send this text to OpenAI for extraction.", Modifier.padding(top = 8.dp)) }
         Button(onClick = { vm.extract(consent) }, enabled = !vm.busy && consent && vm.importText.length >= 5) { Text("Extract with AI") }
         HorizontalDivider()

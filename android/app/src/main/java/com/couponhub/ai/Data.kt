@@ -6,7 +6,10 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import androidx.room.*
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.google.gson.Gson
+import kotlinx.coroutines.flow.Flow
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -50,8 +53,67 @@ data class CacheEntry(@PrimaryKey val key: String, val json: String, val updated
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(entry: CacheEntry)
     @Query("DELETE FROM coupon_cache") suspend fun clear()
 }
-@Database(entities = [CacheEntry::class], version = 1, exportSchema = false)
-abstract class CouponDatabase : RoomDatabase() { abstract fun cache(): CacheDao }
+
+@Entity(
+    tableName = "import_drafts",
+    indices = [Index(value = ["accountId", "updatedAt"])]
+)
+data class ImportDraftEntity(
+    @PrimaryKey val id: String,
+    val accountId: String,
+    val captureSource: String,
+    val couponSource: String,
+    val rawText: String,
+    val extractedJson: String?,
+    val missingFields: String,
+    val status: String,
+    val createdAt: Long,
+    val updatedAt: Long
+)
+
+@Dao interface ImportDraftDao {
+    @Query("SELECT * FROM import_drafts WHERE accountId = :accountId ORDER BY updatedAt DESC")
+    fun observe(accountId: String): Flow<List<ImportDraftEntity>>
+    @Query("SELECT * FROM import_drafts WHERE id = :id LIMIT 1")
+    suspend fun get(id: String): ImportDraftEntity?
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun put(draft: ImportDraftEntity)
+    @Query("DELETE FROM import_drafts WHERE id = :id")
+    suspend fun delete(id: String)
+    @Query("DELETE FROM import_drafts WHERE accountId = :accountId")
+    suspend fun deleteAllForAccount(accountId: String)
+}
+
+private val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS `import_drafts` (
+                `id` TEXT NOT NULL,
+                `accountId` TEXT NOT NULL,
+                `captureSource` TEXT NOT NULL,
+                `couponSource` TEXT NOT NULL,
+                `rawText` TEXT NOT NULL,
+                `extractedJson` TEXT,
+                `missingFields` TEXT NOT NULL,
+                `status` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                `updatedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )""".trimIndent()
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_import_drafts_accountId_updatedAt` " +
+                "ON `import_drafts` (`accountId`, `updatedAt`)"
+        )
+    }
+}
+
+@Database(entities = [CacheEntry::class, ImportDraftEntity::class], version = 2, exportSchema = false)
+abstract class CouponDatabase : RoomDatabase() {
+    abstract fun cache(): CacheDao
+    abstract fun importDrafts(): ImportDraftDao
+}
+
 class CouponHubApp : Application() {
     lateinit var session: SessionStore; private set
     lateinit var db: CouponDatabase; private set
@@ -59,7 +121,9 @@ class CouponHubApp : Application() {
     override fun onCreate() {
         super.onCreate()
         session = SessionStore(this)
-        db = Room.databaseBuilder(this, CouponDatabase::class.java, "couponhub.db").build()
+        db = Room.databaseBuilder(this, CouponDatabase::class.java, "couponhub.db")
+            .addMigrations(MIGRATION_1_2)
+            .build()
         val client = OkHttpClient.Builder().callTimeout(30, TimeUnit.SECONDS).addInterceptor { chain ->
             val request = chain.request().newBuilder()
             session.session?.let { request.header("Authorization", "Bearer ${it.accessToken}") }

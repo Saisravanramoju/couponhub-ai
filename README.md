@@ -1,6 +1,6 @@
 # CouponHub AI
 
-CouponHub AI is an Android coupon wallet backed by ASP.NET Core 9 and PostgreSQL. It supports private coupon imports, searchable public offers, saved coupons, expiry reminders, on-device screenshot OCR, optional OpenAI-assisted extraction, and personalized recommendations.
+CouponHub AI is an Android coupon wallet backed by ASP.NET Core 9 and PostgreSQL. It supports private coupon imports, Android Sharesheet capture, resumable incomplete drafts, searchable public offers, saved coupons, expiry reminders, on-device screenshot OCR, optional OpenAI-assisted extraction, and personalized recommendations.
 
 ## What is included
 
@@ -9,7 +9,7 @@ CouponHub AI is an Android coupon wallet backed by ASP.NET Core 9 and PostgreSQL
 | Accounts | Registration, sign-in, revocable seven-day bearer sessions, sign-out, and category preferences |
 | Catalog | Brand and coupon APIs, private coupon creation, owner update/delete, and administrator publication |
 | Discovery | Paginated text/category search and deterministic or opt-in AI recommendations |
-| Imports | Manual entry, pasted text, screenshot OCR, optional AI extraction, and editable review |
+| Imports | Android Sharesheet text/images, explicit clipboard paste, screenshot OCR, incomplete drafts, optional AI extraction, and editable review |
 | Wallet | Save/unsave, an on-device Room cache, coupon-code copy, and use tracking |
 | Reminders | Optional WorkManager notifications for saved coupons expiring within three days |
 | Delivery | Docker Compose, EF Core migrations, backend tests, Android build/lint/tests, and CI artifacts |
@@ -152,6 +152,31 @@ The key remains on the backend and is never embedded in the Android application.
 - Recommendation candidates are filtered by ownership, state, expiry, brand, and minimum order before optional AI ranking.
 - Only IDs from the server-generated shortlist are accepted from the model.
 - Without an API key, accounts, manual imports, search, saved coupons, and deterministic recommendations still work. AI extraction returns HTTP 503 so the app can offer manual entry.
+
+## Capture a coupon from another Android app
+
+Phase 2 adds an explicit, user-triggered capture flow:
+
+1. In an ecommerce, food delivery, payments, email, browser, or messaging app, select **Share**.
+2. Choose **CouponHub** for shared text, one image, or multiple images.
+3. CouponHub opens the Import screen. Image OCR runs locally with ML Kit and only recognized text is prepared for review.
+4. Edit or remove personal information. The capture is stored locally as an incomplete coupon until it is saved or discarded.
+5. Optionally consent to AI extraction, review every extracted field, select a known brand, and save the private coupon.
+
+For **Circle to Search**, copy the selected text, open CouponHub, go to **Import**, and tap **Paste**. Android does not expose a supported API that lets third-party apps intercept Circle to Search results directly.
+
+No Accessibility Service, background clipboard monitor, notification listener, silent screenshot permission, or MediaProjection permission is used. CouponHub reads clipboard text only after the visible **Paste** action, respects protected screens, and never sends the source image to OpenAI. Signing out removes the signed-in account's local incomplete drafts.
+
+To test the text Sharesheet path from a connected emulator or device:
+
+```bash
+adb shell am start \
+  -a android.intent.action.SEND \
+  -t text/plain \
+  --es android.intent.extra.TEXT "SAVE20 gives 20% off at Swiggy, max discount 100"
+```
+
+Choose CouponHub in the Android resolver. No extra runtime permission is required for Sharesheet intake.
 
 ## Build and run Android
 
@@ -314,6 +339,6 @@ The Compose setup runs the API in Development and is not an internet-facing depl
 - `backend/CouponHub.Infrastructure`: EF Core, account persistence, recommendation orchestration, and the OpenAI adapter.
 - `backend/CouponHub.Api`: authenticated HTTP endpoints, access policies, middleware, and composition root.
 - `backend/CouponHub.Tests`: domain, ranking, AI contract, migration, and PostgreSQL integration tests.
-- `android/app`: Compose UI, ViewModel, Retrofit, encrypted session storage, Room cache, ML Kit OCR, and WorkManager.
+- `android/app`: Compose UI, Sharesheet intake, ViewModel, Retrofit, encrypted session storage, Room cache/drafts, ML Kit OCR, and WorkManager.
 
-See [delivery status](docs/DELIVERY_STATUS.md), [API guide](docs/API.md), and [architecture notes](docs/ARCHITECTURE.md).
+See [delivery status](docs/DELIVERY_STATUS.md), [API guide](docs/API.md), [architecture notes](docs/ARCHITECTURE.md), and the [Phase 2 capture design](docs/PHASE_2_CAPTURE.md).

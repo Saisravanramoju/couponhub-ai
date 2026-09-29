@@ -10,9 +10,12 @@ import com.google.gson.Gson
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import retrofit2.HttpException
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 class CouponViewModel(private val app: CouponHubApp) : AndroidViewModel(app) {
@@ -25,6 +28,7 @@ class CouponViewModel(private val app: CouponHubApp) : AndroidViewModel(app) {
     var brands by mutableStateOf<List<Brand>>(emptyList()); private set
     var recommendations by mutableStateOf<Recommendations?>(null); private set
     var draft by mutableStateOf<Draft?>(null); private set
+    var incompleteDrafts by mutableStateOf<List<ImportDraftEntity>>(emptyList()); private set
     var importText by mutableStateOf("")
     var importSource by mutableStateOf("Manual")
     var query by mutableStateOf("")
@@ -32,7 +36,15 @@ class CouponViewModel(private val app: CouponHubApp) : AndroidViewModel(app) {
     var page by mutableStateOf(1); private set
     var total by mutableStateOf(0); private set
     private val gson = Gson()
-    init { if (loggedIn) refresh() }
+    private var activeDraftId: String? = null
+    private var activeCaptureSource = "manual"
+    private var draftsJob: Job? = null
+    init {
+        if (loggedIn) {
+            observeDrafts()
+            refresh()
+        }
+    }
     private fun action(block: suspend () -> Unit) {
         if (busy) return
         viewModelScope.launch {
@@ -56,6 +68,7 @@ class CouponViewModel(private val app: CouponHubApp) : AndroidViewModel(app) {
     fun login(email: String, password: String, register: Boolean) = action {
         val result = if (register) app.api.register(Credentials(email, password)) else app.api.login(Credentials(email, password))
         app.session.save(result); loggedIn = true
+        observeDrafts()
         load()
     }
     fun refresh() = action { load() }
@@ -93,20 +106,97 @@ class CouponViewModel(private val app: CouponHubApp) : AndroidViewModel(app) {
         recommendations = app.api.recommend(RecommendationRequest(intent, number, useAi = useAi))
     }
     fun extract(consent: Boolean) = action {
+        persistImportDraft(activeCaptureSource, importSource, importText, draft)
         draft = app.api.extract(ImportText(importText, consent)).draft
+        persistImportDraft(activeCaptureSource, importSource, importText, draft)
         message = "Review every field and select the correct brand before saving."
     }
+
     fun ocr(uri: Uri) = action {
-        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-        try {
-            importText = recognizer.process(InputImage.fromFilePath(app, uri)).await().text.take(12000)
-            importSource = "OCR"
-            message = "Text recognized on your device. Review it before AI extraction."
-        } finally { recognizer.close() }
+        val recognized = recognizeImages(listOf(uri))
+        if (recognized.isBlank()) {
+            message = "No readable coupon text was found in that image."
+            return@action
+        }
+        draft = null
+        importText = recognized.take(12_000)
+        importSource = "OCR"
+        activeCaptureSource = "screenshot-picker"
+        persistImportDraft(activeCaptureSource, importSource, importText, null)
+        message = "Text recognized on your device and saved as an incomplete draft. Review it before AI extraction."
     }
+
+    fun acceptSharedContent(payload: SharedCouponPayload) = action {
+        activeDraftId = null
+        draft = null
+        val recognized = recognizeImages(payload.imageUris)
+        val combined = listOfNotNull(payload.text, recognized.takeIf { it.isNotBlank() })
+            .joinToString("\n\n").trim().take(12_000)
+        if (combined.isBlank()) {
+            message = "No readable coupon text was found in the shared content."
+            return@action
+        }
+        importText = combined
+        importSource = if (payload.imageUris.isEmpty()) "Manual" else "Screenshot"
+        activeCaptureSource = when {
+            payload.imageUris.isNotEmpty() && payload.text != null -> "share-text-and-image"
+            payload.imageUris.isNotEmpty() -> "share-image"
+            else -> "share-text"
+        }
+        persistImportDraft(activeCaptureSource, importSource, importText, null)
+        message = "Shared coupon text is ready for review and saved in Incomplete coupons."
+    }
+
+    fun acceptPastedText(text: String) = action {
+        val cleaned = text.trim().take(12_000)
+        if (cleaned.isBlank()) {
+            message = "The clipboard does not contain text."
+            return@action
+        }
+        draft = null
+        importText = cleaned
+        importSource = "Manual"
+        activeCaptureSource = "clipboard"
+        persistImportDraft(activeCaptureSource, importSource, importText, null)
+        message = "Clipboard text was added after your tap and saved on this device."
+    }
+
+    fun updateImportText(text: String) {
+        val cleaned = text.take(12_000)
+        if (cleaned != importText) draft = null
+        importText = cleaned
+    }
+
+    fun saveCurrentImportForLater() = action {
+        if (importText.isBlank()) {
+            message = "Add coupon text before saving a draft."
+            return@action
+        }
+        persistImportDraft(activeCaptureSource, importSource, importText, draft)
+        message = "Incomplete coupon saved on this device."
+    }
+
+    fun resumeImportDraft(savedDraft: ImportDraftEntity) {
+        activeDraftId = savedDraft.id
+        activeCaptureSource = savedDraft.captureSource
+        importText = savedDraft.rawText
+        importSource = savedDraft.couponSource
+        draft = savedDraft.extractedJson?.let { runCatching { gson.fromJson(it, Draft::class.java) }.getOrNull() }
+        message = "Draft opened. Review the text and complete the missing fields."
+    }
+
+    fun discardImportDraft(id: String) = action {
+        app.db.importDrafts().delete(id)
+        if (activeDraftId == id) clearImportState()
+        message = "Incomplete coupon discarded."
+    }
+
     fun saveCoupon(request: CreateCoupon, editId: String? = null) = action {
         if (editId == null) app.api.create(request) else app.api.update(editId, request)
-        draft = null; importText = ""; importSource = "Manual"
+        if (editId == null) {
+            activeDraftId?.let { app.db.importDrafts().delete(it) }
+            clearImportState()
+        }
         searchInternal(false)
         message = "Coupon saved privately to your account."
     }
@@ -125,11 +215,75 @@ class CouponViewModel(private val app: CouponHubApp) : AndroidViewModel(app) {
     }
     fun disableReminders() { WorkManager.getInstance(app).cancelUniqueWork("coupon-expiry"); message = "Expiry reminders disabled." }
     fun logout() = action { try { app.api.logout() } finally { clearSession() } }
+
+    private fun observeDrafts() {
+        val accountId = app.session.session?.id ?: return
+        draftsJob?.cancel()
+        draftsJob = viewModelScope.launch {
+            app.db.importDrafts().observe(accountId).collect { incompleteDrafts = it }
+        }
+    }
+
+    private suspend fun recognizeImages(uris: List<Uri>): String {
+        if (uris.isEmpty()) return ""
+        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+        return try {
+            uris.mapNotNull { uri ->
+                runCatching { recognizer.process(InputImage.fromFilePath(app, uri)).await().text.trim() }
+                    .getOrNull()?.takeIf { it.isNotBlank() }
+            }.joinToString("\n\n")
+        } finally {
+            recognizer.close()
+        }
+    }
+
+    private suspend fun persistImportDraft(
+        captureSource: String,
+        couponSource: String,
+        text: String,
+        extracted: Draft?
+    ) {
+        val accountId = app.session.session?.id ?: return
+        val now = System.currentTimeMillis()
+        val id = activeDraftId ?: UUID.randomUUID().toString().also { activeDraftId = it }
+        val existing = app.db.importDrafts().get(id)
+        val missing = missingCouponFields(extracted, brands.map { it.name })
+        app.db.importDrafts().put(
+            ImportDraftEntity(
+                id = id,
+                accountId = accountId,
+                captureSource = captureSource,
+                couponSource = couponSource,
+                rawText = text.trim().take(12_000),
+                extractedJson = extracted?.let { gson.toJson(it) },
+                missingFields = missing.joinToString("|"),
+                status = when {
+                    extracted == null -> "CAPTURED"
+                    missing.isEmpty() -> "READY_FOR_REVIEW"
+                    else -> "NEEDS_DETAILS"
+                },
+                createdAt = existing?.createdAt ?: now,
+                updatedAt = now
+            )
+        )
+    }
+
+    private fun clearImportState() {
+        activeDraftId = null
+        activeCaptureSource = "manual"
+        draft = null
+        importText = ""
+        importSource = "Manual"
+    }
+
     private suspend fun clearSession() {
+        val accountId = app.session.session?.id
+        accountId?.let { app.db.importDrafts().deleteAllForAccount(it) }
+        draftsJob?.cancel(); draftsJob = null
         app.session.clear(); WorkManager.getInstance(app).cancelUniqueWork("coupon-expiry")
         app.getSystemService(NotificationManager::class.java).cancelAll()
         app.db.cache().clear(); app.getSharedPreferences("expiry-notices", 0).edit().clear().apply()
         loggedIn = false; account = null; coupons = emptyList(); saved = emptyList(); brands = emptyList()
-        recommendations = null; draft = null; importText = ""
+        recommendations = null; incompleteDrafts = emptyList(); clearImportState()
     }
 }
